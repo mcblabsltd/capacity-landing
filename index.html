@@ -316,6 +316,23 @@
       display: flex;
     }
 
+    .error-message {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: rgba(220, 80, 80, 0.1);
+      border: 1px solid rgba(220, 80, 80, 0.3);
+      color: #e87c7c;
+      padding: 14px 28px;
+      border-radius: 100px;
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .error-message.visible {
+      display: flex;
+    }
+
     .success-icon {
       width: 20px;
       height: 20px;
@@ -844,6 +861,10 @@
         You're on the list — we'll be in touch.
       </div>
 
+      <div class="error-message" id="hero-error">
+        Something went wrong — please try again.
+      </div>
+
       <p class="hero-footnote fade-up fade-up-delay-4">
         Free to join. Launching in <span>South &amp; East London.</span>
       </p>
@@ -987,6 +1008,10 @@
         You're on the list — we'll be in touch.
       </div>
 
+      <div class="error-message" id="final-error">
+        Something went wrong — please try again.
+      </div>
+
       <p class="hero-footnote fade-up fade-up-delay-4" style="margin-top: 20px;">
         Free to join. Launching in <span>South &amp; East London.</span>
       </p>
@@ -1049,39 +1074,56 @@
     // ─── FORM SUBMIT HANDLER ────────────────────────────────────────
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF53-If5DttKuKs0IEqSbsej19FJdRrEmV7ug-Db0vds2ZTEtTKf8OO8dc6WXNbyAs/exec';
 
-    function showSuccess(form, successEl) {
+    function revealEl(el) {
+      el.classList.add('visible');
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(8px)';
+      requestAnimationFrame(() => {
+        el.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+        el.style.opacity = '1';
+        el.style.transform = 'translateY(0)';
+      });
+    }
+
+    function fadeOutForm(form, cb) {
       form.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
       form.style.opacity = '0';
       form.style.transform = 'translateY(-8px)';
-
-      setTimeout(() => {
-        form.style.display = 'none';
-        successEl.classList.add('visible');
-        successEl.style.opacity = '0';
-        successEl.style.transform = 'translateY(8px)';
-        requestAnimationFrame(() => {
-          successEl.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
-          successEl.style.opacity = '1';
-          successEl.style.transform = 'translateY(0)';
-        });
-      }, 280);
+      setTimeout(() => { form.style.display = 'none'; cb(); }, 280);
     }
 
-    function handleSubmit(e, successId) {
+    async function handleSubmit(e, successId) {
       e.preventDefault();
       const form = e.target;
       const email = form.querySelector('input[type="email"]').value;
       const successEl = document.getElementById(successId);
+      const errorEl = document.getElementById(successId.replace('success', 'error'));
+      const body = JSON.stringify({ email });
 
-      // Show success immediately — don't gate UX on network
-      showSuccess(form, successEl);
+      console.log('[Capacity] Submitting to:', SCRIPT_URL);
+      console.log('[Capacity] Request body:', body);
 
-      // POST to Google Sheets in the background
-      fetch(SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      }).catch(err => console.error('Waitlist submission failed:', err));
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        });
+
+        console.log('[Capacity] Response status:', res.status);
+        console.log('[Capacity] Response ok:', res.ok);
+
+        const text = await res.text();
+        console.log('[Capacity] Response body:', text);
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${text}`);
+
+        fadeOutForm(form, () => revealEl(successEl));
+
+      } catch (err) {
+        console.error('[Capacity] Submission failed:', err);
+        fadeOutForm(form, () => revealEl(errorEl));
+      }
     }
 
     // ─── ORBS INIT (ensure they fade in) ───────────────────────────
