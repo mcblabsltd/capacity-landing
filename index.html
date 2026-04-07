@@ -327,6 +327,7 @@
       border-radius: 100px;
       font-size: 15px;
       font-weight: 500;
+      margin-top: 12px;
     }
 
     .error-message.visible {
@@ -1085,6 +1086,10 @@
       });
     }
 
+    function hideEl(el) {
+      el.classList.remove('visible');
+    }
+
     function fadeOutForm(form, cb) {
       form.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
       form.style.opacity = '0';
@@ -1095,34 +1100,42 @@
     async function handleSubmit(e, successId) {
       e.preventDefault();
       const form = e.target;
+      const btn = form.querySelector('button[type="submit"]');
       const email = form.querySelector('input[type="email"]').value;
       const successEl = document.getElementById(successId);
       const errorEl = document.getElementById(successId.replace('success', 'error'));
       const body = JSON.stringify({ email });
 
+      // Disable button while submitting
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      hideEl(errorEl);
+
       console.log('[Capacity] Submitting to:', SCRIPT_URL);
       console.log('[Capacity] Request body:', body);
 
       try {
+        // no-cors: response will be opaque (status 0, body unreadable)
+        // A completed fetch without throwing = request was sent
         const res = await fetch(SCRIPT_URL, {
           method: 'POST',
+          mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
           body,
         });
 
-        console.log('[Capacity] Response status:', res.status);
-        console.log('[Capacity] Response ok:', res.ok);
-
-        const text = await res.text();
-        console.log('[Capacity] Response body:', text);
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}: ${text}`);
+        console.log('[Capacity] Response type:', res.type);
+        console.log('[Capacity] Request sent successfully (opaque response — no-cors mode)');
 
         fadeOutForm(form, () => revealEl(successEl));
 
       } catch (err) {
         console.error('[Capacity] Submission failed:', err);
-        fadeOutForm(form, () => revealEl(errorEl));
+
+        // Restore the form so user can retry
+        btn.disabled = false;
+        btn.textContent = 'Join the waitlist';
+        revealEl(errorEl);
       }
     }
 
